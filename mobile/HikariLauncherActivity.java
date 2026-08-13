@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.StatFs;
+import android.content.SharedPreferences;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -12,6 +13,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.preference.PreferenceManager;
 
 import com.winlator.box64.Box64Preset;
 import com.winlator.container.Container;
@@ -30,15 +32,19 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.util.concurrent.Executors;
+import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class HikariLauncherActivity extends AppCompatActivity {
+    private static final String MANIFEST_URL = "https://hikariro.com/download/mobile/mobile.json";
     private static final String CLIENT_URL = "https://hikariro.com/download/mobile/HikariRO%20Full.zip";
     private static final long CLIENT_ZIP_SIZE = 4820383759L;
     private static final long REQUIRED_FREE_BYTES = 15L * 1024L * 1024L * 1024L;
     private static final String EXE = "raghikari.exe";
+    private ClientInfo client = new ClientInfo("legacy-20260812", CLIENT_URL, CLIENT_ZIP_SIZE, "");
 
     private TextView status;
     private ProgressBar progress;
@@ -95,6 +101,7 @@ public class HikariLauncherActivity extends AppCompatActivity {
             status.setText("Cliente instalado. Pulsa Jugar para iniciar HikariRO.");
             action.setText("Jugar");
             action.setOnClickListener(v -> prepareAndLaunch());
+            checkForUpdates();
         } else {
             progress.setVisibility(View.VISIBLE);
             status.setText("La primera instalación descargará aproximadamente 4,5 GB.\nSe recomiendan 15 GB libres y conexión Wi-Fi.");
@@ -112,8 +119,10 @@ public class HikariLauncherActivity extends AppCompatActivity {
         RootFSInstaller.installIfNeeded(this);
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
+                client = fetchClientInfo();
                 download();
                 extract();
+                PreferenceManager.getDefaultSharedPreferences(this).edit().putString("hikari_client_version", client.version).apply();
                 archive().delete();
                 runOnUiThread(() -> { action.setEnabled(true); refresh(); });
             } catch (Exception e) {
@@ -127,11 +136,11 @@ public class HikariLauncherActivity extends AppCompatActivity {
         File parent = part.getParentFile();
         if (parent != null) parent.mkdirs();
         long existing = part.isFile() ? part.length() : 0;
-        if (existing > CLIENT_ZIP_SIZE) { part.delete(); existing = 0; }
-        while (existing < CLIENT_ZIP_SIZE) {
+        if (existing > client.size) { part.delete(); existing = 0; }
+        while (existing < client.size) {
             final long offset = existing;
-            update("Descargando cliente…", (int)(offset * 1000L / CLIENT_ZIP_SIZE));
-            HttpURLConnection connection = (HttpURLConnection)new URL(CLIENT_URL).openConnection();
+            update("Descargando cliente " + client.version + "…", (int)(offset * 1000L / client.size));
+            HttpURLConnection connection = (HttpURLConnection)new URL(client.url).openConnection();
             connection.setConnectTimeout(30000);
             connection.setReadTimeout(30000);
             if (offset > 0) connection.setRequestProperty("Range", "bytes=" + offset + "-");
@@ -145,14 +154,17 @@ public class HikariLauncherActivity extends AppCompatActivity {
                 while ((count = in.read(buffer)) != -1) {
                     out.write(buffer, 0, count); done += count;
                     if (done - lastUi >= 8L * 1024L * 1024L) {
-                        update("Descargando cliente…", (int)(done * 1000L / CLIENT_ZIP_SIZE));
+                        update("Descargando cliente " + client.version + "…", (int)(done * 1000L / client.size));
                         lastUi = done;
                     }
                 }
             } finally { connection.disconnect(); }
             existing = part.length();
         }
-        if (part.length() != CLIENT_ZIP_SIZE) throw new Exception("tamaño de descarga incorrecto");
+        if (part.length() != client.size) throw new Exception("tamaño de descarga incorrecto");
+        if (!client.sha256.isEmpty() && !client.sha256.equalsIgnoreCase(sha256(part))) {
+            throw new Exception("la comprobación SHA-256 no coincide");
+        }
     }
 
     private void extract() throws Exception {
@@ -201,12 +213,18 @@ public class HikariLauncherActivity extends AppCompatActivity {
         ContainerManager manager = new ContainerManager(this);
         Container container = null;
         for (Container item : manager.getContainers()) if ("HikariRO".equals(item.getName())) { container = item; break; }
-        if (container != null) { launch(container); return; }
+        boolean compatible = PreferenceManager.getDefaultSharedPreferences(this).getBoolean("hikari_compat_mode", false);
+        if (container != null) {
+            applyGraphicsMode(container, compatible);
+            launch(container);
+            return;
+        }
         try {
             JSONObject data = new JSONObject();
             data.put("name", "HikariRO");
             data.put("screenSize", "960x540");
-            data.put("graphicsDriver", "vortek,virgl");
+            data.put("graphicsDriver", compatible ? "vortek,virgl" : "vortek,gladio");
+            data.put("dxwrapper", compatible ? "wined3d" : "dxvk");
             data.put("box64Preset", Box64Preset.PERFORMANCE);
             data.put("drives", "E:" + AppUtils.INTERNAL_STORAGE);
             manager.createContainerAsync(data, created -> {
@@ -222,6 +240,63 @@ public class HikariLauncherActivity extends AppCompatActivity {
         intent.putExtra("exec_path", executable().getAbsolutePath());
         startActivity(intent);
         action.setEnabled(true);
+    }
+
+    private void applyGraphicsMode(Container container, boolean compatible) {
+        container.setGraphicsDriver(compatible ? "vortek,virgl" : "vortek,gladio");
+        container.setDXWrapper(compatible ? "wined3d" : "dxvk");
+        container.saveData();
+    }
+
+    private void checkForUpdates() {
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                ClientInfo remote = fetchClientInfo();
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                String installed = prefs.getString("hikari_client_version", "legacy-20260812");
+                if (!remote.version.equals(installed)) runOnUiThread(() -> {
+                    client = remote;
+                    status.setText("Hay una actualización del cliente disponible: " + remote.version);
+                    action.setText("Actualizar");
+                    action.setOnClickListener(v -> install());
+                });
+            } catch (Exception ignored) {}
+        });
+    }
+
+    private ClientInfo fetchClientInfo() throws Exception {
+        HttpURLConnection connection = (HttpURLConnection)new URL(MANIFEST_URL).openConnection();
+        connection.setConnectTimeout(8000);
+        connection.setReadTimeout(8000);
+        try {
+            if (connection.getResponseCode() != 200) return client;
+            StringBuilder json = new StringBuilder();
+            try (InputStream in = connection.getInputStream()) {
+                byte[] buffer = new byte[8192]; int count;
+                while ((count = in.read(buffer)) != -1) json.append(new String(buffer, 0, count, java.nio.charset.StandardCharsets.UTF_8));
+            }
+            JSONObject value = new JSONObject(json.toString());
+            return new ClientInfo(value.getString("version"), value.getString("url"), value.getLong("size"), value.optString("sha256", ""));
+        } finally { connection.disconnect(); }
+    }
+
+    private String sha256(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
+            byte[] buffer = new byte[1024 * 1024]; int count;
+            while ((count = in.read(buffer)) != -1) digest.update(buffer, 0, count);
+        }
+        StringBuilder value = new StringBuilder();
+        for (byte b : digest.digest()) value.append(String.format(Locale.US, "%02x", b & 0xff));
+        return value.toString();
+    }
+
+    private static class ClientInfo {
+        final String version, url, sha256;
+        final long size;
+        ClientInfo(String version, String url, long size, String sha256) {
+            this.version = version; this.url = url; this.size = size; this.sha256 = sha256;
+        }
     }
 
     private void update(String message, int value) {
