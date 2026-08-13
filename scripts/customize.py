@@ -15,8 +15,8 @@ def replace(path: Path, old: str, new: str) -> None:
 build = root / "app/build.gradle"
 replace(build, "applicationId 'com.winlator'", "applicationId 'com.hikariro.mobile'")
 build_text = build.read_text(encoding="utf-8")
-build_text = re.sub(r"versionCode\s+\d+", "versionCode 7", build_text, count=1)
-build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.7.0-beta"', build_text, count=1)
+build_text = re.sub(r"versionCode\s+\d+", 'versionCode Integer.parseInt("9")', build_text, count=1)
+build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName String.valueOf("0.9.0-beta")', build_text, count=1)
 if "pickFirst '**/*.so'" not in build_text:
     build_text = build_text.replace(
         "android {",
@@ -148,6 +148,15 @@ replace(
     '        preloaderDialog.setStageOnUiThread("Box64 iniciado; esperando la ventana del juego");',
 )
 
+# Ensure the artwork is also applied to the XServer activity surface.
+xserver_text = xserver.read_text(encoding="utf-8")
+xserver_text = xserver_text.replace(
+    'setContentView(R.layout.xserver_display_activity);',
+    'setContentView(R.layout.xserver_display_activity);\n        getWindow().getDecorView().setBackgroundResource(R.drawable.hikariro_launcher_background);',
+    1,
+)
+xserver.write_text(xserver_text, encoding="utf-8")
+
 guest = root / "app/src/main/java/com/winlator/xenvironment/components/GuestProgramLauncherComponent.java"
 replace(guest, "import com.winlator.box64.Box64Preset;", "import com.winlator.box64.Box64Preset;\nimport com.winlator.HikariDiagnostics;")
 replace(
@@ -177,3 +186,42 @@ replace(
     '        }\n'
     '        return pid;',
 )
+
+# 0.9: physically verify and extract Box64 before creating the game container.
+launcher_text = launcher_dst.read_text(encoding="utf-8")
+launcher_text = launcher_text.replace(
+    'import com.winlator.core.AppUtils;\n',
+    'import com.winlator.core.AppUtils;\nimport com.winlator.core.DefaultVersion;\nimport com.winlator.core.GeneralComponents;\n',
+    1,
+)
+launcher_text = launcher_text.replace(
+    '        if (rootFS.isValid() && rootFS.getVersion() >= RootFSInstaller.LATEST_VERSION) {\n            createContainerAndLaunch();',
+    '        if (rootFS.isValid() && rootFS.getVersion() >= RootFSInstaller.LATEST_VERSION) {\n            if (ensureBox64Runtime()) createContainerAndLaunch();',
+    1,
+)
+ensure_method = '''    private boolean ensureBox64Runtime() {\n        RootFS rootFS = RootFS.find(this);\n        File box64 = new File(rootFS.getRootDir(), "usr/local/bin/box64");\n        HikariDiagnostics.record(this, "Box64 precheck: " + box64.getAbsolutePath() + " exists=" + box64.isFile() + " size=" + (box64.isFile() ? box64.length() : 0));\n        if (!box64.isFile()) {\n            status.setText("Reparando runtime Box64…");\n            try {\n                GeneralComponents.extractFile(GeneralComponents.Type.BOX64, this, DefaultVersion.BOX64, DefaultVersion.BOX64);\n            } catch (Exception e) {\n                HikariDiagnostics.record(this, "Error extrayendo Box64: " + e.getClass().getName() + ": " + e.getMessage());\n            }\n        }\n        if (box64.isFile()) {\n            box64.setReadable(true, false);\n            box64.setExecutable(true, false);\n            HikariDiagnostics.record(this, "Box64 listo: size=" + box64.length() + " canExecute=" + box64.canExecute());\n            return true;\n        }\n        HikariDiagnostics.record(this, "Box64 sigue ausente después de extracción");\n        fail("No se pudo instalar Box64 en " + box64.getAbsolutePath());\n        return false;\n    }\n\n'''
+if 'private boolean ensureBox64Runtime()' not in launcher_text:
+    marker = '    private void createContainerAndLaunch() {'
+    if marker not in launcher_text:
+        raise RuntimeError('No se encontró punto para insertar ensureBox64Runtime')
+    launcher_text = launcher_text.replace(marker, ensure_method + marker, 1)
+launcher_dst.write_text(launcher_text, encoding="utf-8")
+
+# 0.9 diagnostics marker so the legacy 0.8 workflow step does not overwrite it.
+diag_text = diagnostics_dst.read_text(encoding="utf-8")
+diag_text = diag_text.replace('Inicio del diagnóstico 0.7', 'Inicio del diagnóstico 0.9')
+diag_text = diag_text.replace('Inicio del diagnóstico 0.8', 'Inicio del diagnóstico 0.9')
+if 'remove("current_box64_version")' not in diag_text:
+    marker = '        record(context, "Inicio del diagnóstico 0.9");'
+    if marker in diag_text:
+        diag_text = diag_text.replace(
+            marker,
+            '        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context).edit().remove("current_box64_version").commit();\n' + marker,
+            1,
+        )
+diagnostics_dst.write_text(diag_text, encoding="utf-8")
+
+startup_text = startup_dst.read_text(encoding="utf-8")
+startup_text = startup_text.replace('HikariRO Mobile 0.7\\n', 'HikariRO Mobile 0.9\\n')
+startup_text = startup_text.replace('HikariRO Mobile 0.8\\n', 'HikariRO Mobile 0.9\\n')
+startup_dst.write_text(startup_text, encoding="utf-8")
