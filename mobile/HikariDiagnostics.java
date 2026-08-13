@@ -12,12 +12,18 @@ import java.util.List;
 import java.util.Locale;
 
 public final class HikariDiagnostics {
+    private static Context appContext;
     private HikariDiagnostics() {}
 
     public static synchronized void reset(Context context) {
+        appContext = context.getApplicationContext();
         File file = file(context);
         if (file.isFile()) file.delete();
-        record(context, "Inicio del diagnóstico 0.6");
+        record(context, "Inicio del diagnóstico 0.7");
+    }
+
+    public static synchronized void record(String message) {
+        if (appContext != null) record(appContext, message);
     }
 
     public static synchronized void record(Context context, String message) {
