@@ -12,6 +12,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ImageView;
+import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -82,11 +83,21 @@ public class HikariLauncherActivity extends AppCompatActivity {
     private File archive() { return new File(getExternalFilesDir(null), "HikariRO-Full.zip.part"); }
 
     private void buildUi() {
+        FrameLayout frame = new FrameLayout(this);
+        ImageView background = new ImageView(this);
+        background.setImageResource(R.drawable.hikariro_launcher_background);
+        background.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        frame.addView(background, new FrameLayout.LayoutParams(-1, -1));
+
+        View shade = new View(this);
+        shade.setBackgroundColor(0x55030b1d);
+        frame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
         root.setPadding(48, 32, 48, 32);
-        root.setBackgroundColor(Color.rgb(8, 21, 47));
+        root.setBackgroundColor(Color.TRANSPARENT);
 
         ImageView logo = new ImageView(this);
         logo.setImageResource(R.drawable.hikariro_mobile_icon);
@@ -118,7 +129,8 @@ public class HikariLauncherActivity extends AppCompatActivity {
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(-2, -2);
         buttonParams.setMargins(0, 28, 0, 0);
         root.addView(action, buttonParams);
-        setContentView(root);
+        frame.addView(root, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(frame);
     }
 
     private void refresh() {
@@ -242,6 +254,13 @@ public class HikariLauncherActivity extends AppCompatActivity {
         if (!preferences.contains("hikari_compat_mode")) {
             preferences.edit().putBoolean("hikari_compat_mode", true).apply();
         }
+        preferences.edit()
+            .putInt("box64_logs", 2)
+            .putBoolean("enable_wine_debug", true)
+            .putString("wine_debug_channels", "seh,loaddll")
+            .putBoolean("save_logs_to_file", true)
+            .putString("log_file", new File(getFilesDir(), "hikari-startup.log").getAbsolutePath())
+            .apply();
         RootFSInstaller.installIfNeeded(this);
         waitForRootFs(0);
     }
