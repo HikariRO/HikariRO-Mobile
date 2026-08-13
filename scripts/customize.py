@@ -15,8 +15,8 @@ def replace(path: Path, old: str, new: str) -> None:
 build = root / "app/build.gradle"
 replace(build, "applicationId 'com.winlator'", "applicationId 'com.hikariro.mobile'")
 build_text = build.read_text(encoding="utf-8")
-build_text = re.sub(r"versionCode\s+\d+", "versionCode 6", build_text, count=1)
-build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.6.0-beta"', build_text, count=1)
+build_text = re.sub(r"versionCode\s+\d+", "versionCode 7", build_text, count=1)
+build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.7.0-beta"', build_text, count=1)
 if "pickFirst '**/*.so'" not in build_text:
     build_text = build_text.replace(
         "android {",
@@ -156,4 +156,23 @@ replace(
     '            HikariDiagnostics.record(environment.getContext(), "Solicitando proceso Box64");\n'
     "            pid = execGuestProgram();\n"
     '            HikariDiagnostics.record(environment.getContext(), "PID devuelto por Box64: " + pid);',
+)
+
+process_helper = root / "app/src/main/java/com/winlator/core/ProcessHelper.java"
+replace(process_helper, "import com.winlator.MainActivity;", "import com.winlator.MainActivity;\nimport com.winlator.HikariDiagnostics;")
+replace(
+    process_helper,
+    '            Field pidField = process.getClass().getDeclaredField("pid");\n'
+    '            pidField.setAccessible(true);\n'
+    '            pid = pidField.getInt(process);\n'
+    '            pidField.setAccessible(false);',
+    '            pid = (int)process.pid();',
+)
+replace(
+    process_helper,
+    "        catch (Exception e) {}\n        return pid;",
+    '        catch (Exception e) {\n'
+    '            HikariDiagnostics.record("ProcessHelper: " + e.getClass().getName() + ": " + e.getMessage());\n'
+    '        }\n'
+    '        return pid;',
 )
