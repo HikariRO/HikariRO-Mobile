@@ -1,6 +1,8 @@
 from pathlib import Path
 import re
-from PIL import Image
+from PIL import Image, ImageFile
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 root = Path("winlator/app")
 
@@ -58,7 +60,6 @@ text = text.replace(
         } else {
             HikariDiagnostics.record(activity, "Fondo NO cargado: drawable=null");
         }''', 1)
-# Remove the tint completely while diagnosing the black background.
 text = text.replace('shade.setBackgroundColor(0x33030b1d);', 'shade.setBackgroundColor(Color.TRANSPARENT);', 1)
 startup.write_text(text, encoding="utf-8")
 
