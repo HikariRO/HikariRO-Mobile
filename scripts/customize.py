@@ -12,6 +12,15 @@ def replace(path: Path, old: str, new: str) -> None:
 
 build = root / "app/build.gradle"
 replace(build, "applicationId 'com.winlator'", "applicationId 'com.hikariro.mobile'")
+build_text = build.read_text(encoding="utf-8")
+android_marker = "android {"
+if "pickFirst '**/*.so'" not in build_text:
+    build_text = build_text.replace(
+        android_marker,
+        android_marker + "\n    packagingOptions {\n        pickFirst '**/*.so'\n    }",
+        1,
+    )
+    build.write_text(build_text, encoding="utf-8")
 
 app_utils = root / "app/src/main/java/com/winlator/core/AppUtils.java"
 replace(
