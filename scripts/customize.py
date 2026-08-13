@@ -124,7 +124,8 @@ replace(
 )
 replace(
     xserver,
-    "        if (audioDriver.equals(AudioDrivers.ALSA)) {",
+    "        environment.addComponent(new NetworkInfoUpdateComponent());\n\n        if (audioDriver.equals(AudioDrivers.ALSA)) {",
+    "        environment.addComponent(new NetworkInfoUpdateComponent());\n\n"
     '        preloaderDialog.setStageOnUiThread("Configurando el servicio de audio");\n'
     '        HikariDiagnostics.record(this, "Configurando audio: " + audioDriver);\n'
     "        if (audioDriver.equals(AudioDrivers.ALSA)) {",
