@@ -49,6 +49,51 @@ jobs:
       - name: Apply 0.12 persistent diagnostics and full background
         run: python3 scripts/patch_012.py
 
+      - name: Apply 0.13 direct Wine launch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('winlator/app')
+          build = root / 'app/build.gradle'
+          text = build.read_text(encoding='utf-8')
+          text = re.sub(r'versionCode\s+[^\n]+', 'versionCode Integer.parseInt("13")', text, count=1)
+          text = re.sub(r'versionName\s+[^\n]+', 'versionName String.valueOf("0.13.0-beta")', text, count=1)
+          build.write_text(text, encoding='utf-8')
+
+          for rel in [
+              'app/src/main/java/com/winlator/HikariDiagnostics.java',
+              'app/src/main/java/com/winlator/HikariStartupDialog.java',
+              'app/src/main/java/com/winlator/HikariLauncherActivity.java',
+          ]:
+              p = root / rel
+              text = p.read_text(encoding='utf-8').replace('0.12', '0.13')
+              p.write_text(text, encoding='utf-8')
+
+          guest = root / 'app/src/main/java/com/winlator/xenvironment/components/GuestProgramLauncherComponent.java'
+          text = guest.read_text(encoding='utf-8')
+          needle = '        File box64File = new File(rootDir, "/usr/local/bin/box64");'
+          insert = '''        String launchExecutable = guestExecutable;
+          if (guestExecutable != null && guestExecutable.contains("winhandler.exe")) {
+              File wineBinary = new File(rootDir, rootFS.getWinePath()+"/bin/wine");
+              File wineServer = new File(rootDir, rootFS.getWinePath()+"/bin/wineserver");
+              HikariDiagnostics.record(environment.getContext(), "0.13 direct Wine launch habilitado");
+              HikariDiagnostics.record(environment.getContext(), "wine: " + wineBinary.getAbsolutePath() + " exists=" + wineBinary.isFile() + " size=" + (wineBinary.isFile() ? wineBinary.length() : 0));
+              HikariDiagnostics.record(environment.getContext(), "wineserver: " + wineServer.getAbsolutePath() + " exists=" + wineServer.isFile() + " size=" + (wineServer.isFile() ? wineServer.length() : 0));
+              launchExecutable = "wine cmd /c \\\"E: && cd \\\\HikariRO && raghikari.exe\\\"";
+              HikariDiagnostics.record(environment.getContext(), "launchExecutable=" + launchExecutable);
+          }
+
+          File box64File = new File(rootDir, "/usr/local/bin/box64");'''
+          if needle not in text:
+              raise RuntimeError('No se encontro punto de insercion 0.13')
+          text = text.replace(needle, insert, 1)
+          text = text.replace('box64File.getAbsolutePath()+" "+guestExecutable', 'box64File.getAbsolutePath()+" "+launchExecutable')
+          text = text.replace('" guestExecutable=" + guestExecutable', '" guestExecutable=" + launchExecutable')
+          guest.write_text(text, encoding='utf-8')
+          PY
+
       - name: Build ARM64 private APK
         working-directory: winlator/app
         run: |
@@ -56,12 +101,12 @@ jobs:
           ./gradlew --no-daemon assembleDebug
 
       - name: Rename APK
-        run: cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.12-beta.apk
+        run: cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.13-beta.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HikariRO-Mobile-0.12-beta
-          path: HikariRO-Mobile-0.12-beta.apk
+          name: HikariRO-Mobile-0.13-beta
+          path: HikariRO-Mobile-0.13-beta.apk
           if-no-files-found: error
           retention-days: 30
