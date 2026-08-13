@@ -54,14 +54,22 @@ jobs:
 
           diagnostics = root / "app/src/main/java/com/winlator/HikariDiagnostics.java"
           text = diagnostics.read_text(encoding="utf-8")
-          old = '        record(context, "Inicio del diagnóstico 0.7");'
-          new = ('        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)'
-                 '.edit().remove("current_box64_version").commit();\n'
-                 '        record(context, "Inicio del diagnóstico 0.8");\n'
-                 '        record(context, "Runtime Box64 marcado para revalidación");')
-          if old not in text:
-              raise RuntimeError("No se encontró el punto de reparación de Box64")
-          diagnostics.write_text(text.replace(old, new, 1), encoding="utf-8")
+          if 'remove("current_box64_version")' not in text:
+              marker = '        record(context, "Inicio del diagnóstico 0.8");'
+              if marker not in text:
+                  marker = '        record(context, "Inicio del diagnóstico 0.7");'
+              if marker not in text:
+                  raise RuntimeError("No se encontró el punto de reparación de Box64")
+              replacement = (
+                  '        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)'
+                  '.edit().remove("current_box64_version").commit();\n'
+                  '        record(context, "Inicio del diagnóstico 0.8");\n'
+                  '        record(context, "Runtime Box64 marcado para revalidación");'
+              )
+              text = text.replace(marker, replacement, 1)
+          else:
+              text = text.replace('Inicio del diagnóstico 0.7', 'Inicio del diagnóstico 0.8')
+          diagnostics.write_text(text, encoding="utf-8")
 
           startup = root / "app/src/main/java/com/winlator/HikariStartupDialog.java"
           text = startup.read_text(encoding="utf-8")
