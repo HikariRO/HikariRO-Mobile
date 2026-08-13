@@ -19,12 +19,17 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.ScrollView;
+import android.widget.FrameLayout;
 
 import androidx.preference.PreferenceManager;
 
 import com.winlator.core.PreloaderDialog;
 
 import java.util.Locale;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.ArrayList;
 
 /** HikariRO-branded startup surface with elapsed time, timeout and diagnostics. */
 public class HikariStartupDialog extends PreloaderDialog {
@@ -90,11 +95,21 @@ public class HikariStartupDialog extends PreloaderDialog {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setCancelable(false);
 
+        FrameLayout frame = new FrameLayout(activity);
+        ImageView background = new ImageView(activity);
+        background.setImageResource(R.drawable.hikariro_launcher_background);
+        background.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        frame.addView(background, new FrameLayout.LayoutParams(-1, -1));
+
+        View shade = new View(activity);
+        shade.setBackgroundColor(0x77030b1d);
+        frame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
         root.setPadding(dp(48), dp(18), dp(48), dp(18));
-        root.setBackgroundColor(0xff08152f);
+        root.setBackgroundColor(0x00000000);
 
         ImageView logo = new ImageView(activity);
         logo.setImageResource(R.drawable.hikariro_mobile_icon);
@@ -145,22 +160,40 @@ public class HikariStartupDialog extends PreloaderDialog {
         ScrollView scroll = new ScrollView(activity);
         scroll.setFillViewport(true);
         scroll.addView(root, new ScrollView.LayoutParams(-1, -1));
-        dialog.setContentView(scroll);
+        frame.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
+        dialog.setContentView(frame);
         Window window = dialog.getWindow();
         if (window != null) window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
     }
 
     private void copyDiagnostic() {
-        String value = "HikariRO Mobile 0.4\n" +
+        String value = "HikariRO Mobile 0.5\n" +
             "Stage: " + currentStage + "\n" +
             "Executable: " + activity.getIntent().getStringExtra("exec_path") + "\n" +
             "Compatible mode: " + activity.getIntent().getBooleanExtra("hikari_compat_mode", true) + "\n" +
             "Device: " + Build.MANUFACTURER + " " + Build.MODEL + "\n" +
             "Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")\n" +
-            "ABI: " + String.join(",", Build.SUPPORTED_ABIS);
+            "ABI: " + String.join(",", Build.SUPPORTED_ABIS) + "\n" +
+            "--- Box64 / Wine (últimas líneas) ---\n" + readLastLogLines();
         ClipboardManager clipboard = (ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);
         clipboard.setPrimaryClip(ClipData.newPlainText("HikariRO diagnosis", value));
         stage.setText(currentStage + "\nDiagnóstico copiado al portapapeles.");
+    }
+
+    private String readLastLogLines() {
+        File log = new File(activity.getFilesDir(), "hikari-startup.log");
+        if (!log.isFile()) return "No se creó el registro de inicio.";
+        ArrayList<String> lines = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(log))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+                if (lines.size() > 120) lines.remove(0);
+            }
+        } catch (Exception e) { return "No se pudo leer el registro: " + e.getMessage(); }
+        StringBuilder result = new StringBuilder();
+        for (String line : lines) result.append(line).append('\n');
+        return result.length() == 0 ? "Registro vacío." : result.toString();
     }
 
     private TextView label(float size, int color) {
