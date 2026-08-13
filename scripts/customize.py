@@ -1,4 +1,6 @@
 from pathlib import Path
+import shutil
+import re
 
 root = Path("winlator/app")
 
@@ -13,14 +15,15 @@ def replace(path: Path, old: str, new: str) -> None:
 build = root / "app/build.gradle"
 replace(build, "applicationId 'com.winlator'", "applicationId 'com.hikariro.mobile'")
 build_text = build.read_text(encoding="utf-8")
-android_marker = "android {"
+build_text = re.sub(r"versionCode\s+\d+", "versionCode 3", build_text, count=1)
+build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.3.0-beta"', build_text, count=1)
 if "pickFirst '**/*.so'" not in build_text:
     build_text = build_text.replace(
-        android_marker,
-        android_marker + "\n    packagingOptions {\n        pickFirst '**/*.so'\n    }",
+        "android {",
+        "android {\n    packagingOptions {\n        pickFirst '**/*.so'\n    }",
         1,
     )
-    build.write_text(build_text, encoding="utf-8")
+build.write_text(build_text, encoding="utf-8")
 
 app_utils = root / "app/src/main/java/com/winlator/core/AppUtils.java"
 replace(
@@ -35,6 +38,7 @@ replace(installer, "install(final MainActivity activity)", "install(final AppCom
 replace(installer, "installIfNeeded(final MainActivity activity)", "installIfNeeded(final AppCompatActivity activity)")
 
 manifest = root / "app/src/main/AndroidManifest.xml"
+replace(manifest, 'android:icon="@mipmap/ic_launcher"', 'android:icon="@drawable/hikariro_mobile_icon"')
 replace(
     manifest,
     '<activity android:name="com.winlator.MainActivity"',
@@ -69,3 +73,35 @@ strings.write_text(
 launcher_src = Path("mobile/HikariLauncherActivity.java")
 launcher_dst = root / "app/src/main/java/com/winlator/HikariLauncherActivity.java"
 launcher_dst.write_text(launcher_src.read_text(encoding="utf-8"), encoding="utf-8")
+
+startup_src = Path("mobile/HikariStartupDialog.java")
+startup_dst = root / "app/src/main/java/com/winlator/HikariStartupDialog.java"
+startup_dst.write_text(startup_src.read_text(encoding="utf-8"), encoding="utf-8")
+
+icon_src = Path("assets/hikariro-mobile-icon.png")
+icon_dst = root / "app/src/main/res/drawable-nodpi/hikariro_mobile_icon.png"
+icon_dst.parent.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(icon_src, icon_dst)
+
+xserver = root / "app/src/main/java/com/winlator/XServerDisplayActivity.java"
+replace(
+    xserver,
+    "final PreloaderDialog preloaderDialog = new PreloaderDialog(this);",
+    "final HikariStartupDialog preloaderDialog = new HikariStartupDialog(this);",
+)
+replace(
+    xserver,
+    "setupWineSystemFiles();\n                extractGraphicsDriverFiles();\n                changeWineAudioDriver();",
+    'preloaderDialog.setStageOnUiThread("Preparando archivos de Wine");\n'
+    "                setupWineSystemFiles();\n"
+    '                preloaderDialog.setStageOnUiThread("Inicializando el controlador gráfico");\n'
+    "                extractGraphicsDriverFiles();\n"
+    '                preloaderDialog.setStageOnUiThread("Configurando el audio");\n'
+    "                changeWineAudioDriver();",
+)
+replace(
+    xserver,
+    "            setupXEnvironment();",
+    '            preloaderDialog.setStageOnUiThread("Iniciando Box64 y raghikari.exe");\n'
+    "            setupXEnvironment();",
+)
