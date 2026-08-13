@@ -19,7 +19,7 @@ public final class HikariDiagnostics {
         appContext = context.getApplicationContext();
         File file = file(context);
         if (file.isFile()) file.delete();
-        record(context, "Inicio del diagnóstico 0.7");
+        record(context, "Inicio del diagnóstico 0.8");
     }
 
     public static synchronized void record(String message) {
