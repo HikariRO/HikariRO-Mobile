@@ -84,7 +84,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          from PIL import Image, ImageStat
+          from PIL import Image
 
           root = Path('winlator/app')
 
@@ -119,26 +119,22 @@ jobs:
           text = text.replace(old, new, 1)
           guest.write_text(text, encoding='utf-8')
 
-          # The supplied artwork contains a large black lower area. Detect the last scenic row,
-          # crop only the actual landscape and scale it to a real 16:9 fullscreen drawable.
-          img_path = root / 'app/src/main/res/drawable/hikariro_launcher_background.png'
+          img_path = root / 'app/src/main/res/drawable-nodpi/hikariro_launcher_background.png'
           img = Image.open(img_path).convert('RGB')
           w, h = img.size
           last = 0
-          sample_step = max(1, w // 320)
+          sample_width = min(320, w)
           for y in range(h):
-              row = img.crop((0, y, w, y + 1)).resize((max(1, w // sample_step), 1))
+              row = img.crop((0, y, w, y + 1)).resize((sample_width, 1))
               pixels = list(row.getdata())
               bright = sum(1 for r,g,b in pixels if max(r,g,b) > 35 and (r+g+b) > 90)
               if bright >= max(3, len(pixels) // 20):
                   last = y
           crop_bottom = min(h, max(180, last + 1))
-          scenic = img.crop((0, 0, w, crop_bottom))
-          scenic = scenic.resize((1920, 1080), Image.Resampling.LANCZOS)
+          scenic = img.crop((0, 0, w, crop_bottom)).resize((1920, 1080), Image.Resampling.LANCZOS)
           scenic.save(img_path, 'PNG', optimize=True)
           print('0.14 background:', (w,h), 'crop_bottom=', crop_bottom, '->', scenic.size)
 
-          # Fill the activity: no FIT_CENTER bars and no dark cover over the scenery.
           for rel in [
               'app/src/main/java/com/winlator/HikariLauncherActivity.java',
               'app/src/main/java/com/winlator/HikariStartupDialog.java',
