@@ -15,8 +15,8 @@ def replace(path: Path, old: str, new: str) -> None:
 build = root / "app/build.gradle"
 replace(build, "applicationId 'com.winlator'", "applicationId 'com.hikariro.mobile'")
 build_text = build.read_text(encoding="utf-8")
-build_text = re.sub(r"versionCode\s+\d+", "versionCode 5", build_text, count=1)
-build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.5.0-beta"', build_text, count=1)
+build_text = re.sub(r"versionCode\s+\d+", "versionCode 6", build_text, count=1)
+build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.6.0-beta"', build_text, count=1)
 if "pickFirst '**/*.so'" not in build_text:
     build_text = build_text.replace(
         "android {",
@@ -78,6 +78,10 @@ startup_src = Path("mobile/HikariStartupDialog.java")
 startup_dst = root / "app/src/main/java/com/winlator/HikariStartupDialog.java"
 startup_dst.write_text(startup_src.read_text(encoding="utf-8"), encoding="utf-8")
 
+diagnostics_src = Path("mobile/HikariDiagnostics.java")
+diagnostics_dst = root / "app/src/main/java/com/winlator/HikariDiagnostics.java"
+diagnostics_dst.write_text(diagnostics_src.read_text(encoding="utf-8"), encoding="utf-8")
+
 icon_src = Path("assets/hikariro-mobile-icon.png")
 icon_dst = root / "app/src/main/res/drawable-nodpi/hikariro_mobile_icon.png"
 icon_dst.parent.mkdir(parents=True, exist_ok=True)
@@ -106,6 +110,49 @@ replace(
 replace(
     xserver,
     "            setupXEnvironment();",
-    '            preloaderDialog.setStageOnUiThread("Iniciando Box64 y raghikari.exe");\n'
-    "            setupXEnvironment();",
+    '            preloaderDialog.setStageOnUiThread("Construyendo el entorno X11");\n'
+    '            HikariDiagnostics.record(this, "Entrando en setupXEnvironment");\n'
+    "            setupXEnvironment(preloaderDialog);",
+)
+replace(xserver, "private void setupXEnvironment() {", "private void setupXEnvironment(HikariStartupDialog preloaderDialog) {")
+replace(
+    xserver,
+    "        environment = new XEnvironment(this, rootFS);",
+    '        preloaderDialog.setStageOnUiThread("Creando servicios X11 y memoria compartida");\n'
+    '        HikariDiagnostics.record(this, "Creando XEnvironment");\n'
+    "        environment = new XEnvironment(this, rootFS);",
+)
+replace(
+    xserver,
+    "        if (audioDriver.equals(AudioDrivers.ALSA)) {",
+    '        preloaderDialog.setStageOnUiThread("Configurando el servicio de audio");\n'
+    '        HikariDiagnostics.record(this, "Configurando audio: " + audioDriver);\n'
+    "        if (audioDriver.equals(AudioDrivers.ALSA)) {",
+)
+replace(
+    xserver,
+    "        if (graphicsDriver[0].equals(GraphicsDrivers.VORTEK)) {",
+    '        preloaderDialog.setStageOnUiThread("Creando el renderizador gráfico compatible");\n'
+    '        HikariDiagnostics.record(this, "Gráficos: " + graphicsDriver[0] + "," + graphicsDriver[1]);\n'
+    "        if (graphicsDriver[0].equals(GraphicsDrivers.VORTEK)) {",
+    )
+replace(
+    xserver,
+    "        environment.startEnvironmentComponents();",
+    '        preloaderDialog.setStageOnUiThread("Iniciando servicios y Box64");\n'
+    '        HikariDiagnostics.record(this, "Antes de startEnvironmentComponents");\n'
+    "        environment.startEnvironmentComponents();\n"
+    '        HikariDiagnostics.record(this, "Después de startEnvironmentComponents");\n'
+    '        HikariDiagnostics.processes(this);\n'
+    '        preloaderDialog.setStageOnUiThread("Box64 iniciado; esperando la ventana del juego");',
+)
+
+guest = root / "app/src/main/java/com/winlator/xenvironment/components/GuestProgramLauncherComponent.java"
+replace(guest, "import com.winlator.box64.Box64Preset;", "import com.winlator.box64.Box64Preset;\nimport com.winlator.HikariDiagnostics;")
+replace(
+    guest,
+    "            pid = execGuestProgram();",
+    '            HikariDiagnostics.record(environment.getContext(), "Solicitando proceso Box64");\n'
+    "            pid = execGuestProgram();\n"
+    '            HikariDiagnostics.record(environment.getContext(), "PID devuelto por Box64: " + pid);',
 )
