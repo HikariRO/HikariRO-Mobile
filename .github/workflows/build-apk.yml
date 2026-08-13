@@ -41,7 +41,7 @@ jobs:
 
       - name: Build ARM64 private APK
         working-directory: winlator/app
-        run: ./gradlew --no-daemon assembleDebug
+        run: |\n          chmod +x gradlew\n          ./gradlew --no-daemon assembleDebug
 
       - name: Rename APK
         run: cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.2-private.apk
