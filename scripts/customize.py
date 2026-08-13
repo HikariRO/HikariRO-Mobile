@@ -166,7 +166,8 @@ replace(
     '            pidField.setAccessible(true);\n'
     '            pid = pidField.getInt(process);\n'
     '            pidField.setAccessible(false);',
-    '            pid = (int)process.pid();',
+    '            java.lang.reflect.Method pidMethod = java.lang.Process.class.getMethod("pid");\n'
+    '            pid = ((Long)pidMethod.invoke(process)).intValue();',
 )
 replace(
     process_helper,
