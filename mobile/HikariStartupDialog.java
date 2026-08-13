@@ -159,6 +159,7 @@ public class HikariStartupDialog extends PreloaderDialog {
 
         ScrollView scroll = new ScrollView(activity);
         scroll.setFillViewport(true);
+        scroll.setBackgroundColor(0x00000000);
         scroll.addView(root, new ScrollView.LayoutParams(-1, -1));
         frame.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
         dialog.setContentView(frame);
@@ -167,28 +168,28 @@ public class HikariStartupDialog extends PreloaderDialog {
     }
 
     private void copyDiagnostic() {
-        String value = "HikariRO Mobile 0.5\n" +
+        String value = "HikariRO Mobile 0.6\n" +
             "Stage: " + currentStage + "\n" +
             "Executable: " + activity.getIntent().getStringExtra("exec_path") + "\n" +
             "Compatible mode: " + activity.getIntent().getBooleanExtra("hikari_compat_mode", true) + "\n" +
             "Device: " + Build.MANUFACTURER + " " + Build.MODEL + "\n" +
             "Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")\n" +
             "ABI: " + String.join(",", Build.SUPPORTED_ABIS) + "\n" +
-            "--- Box64 / Wine (últimas líneas) ---\n" + readLastLogLines();
+            "--- Traza interna ---\n" + readLastLogLines(new File(activity.getFilesDir(), "hikari-trace.log"), 160) +
+            "--- Box64 / Wine ---\n" + readLastLogLines(new File(activity.getFilesDir(), "hikari-startup.log"), 120);
         ClipboardManager clipboard = (ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);
         clipboard.setPrimaryClip(ClipData.newPlainText("HikariRO diagnosis", value));
         stage.setText(currentStage + "\nDiagnóstico copiado al portapapeles.");
     }
 
-    private String readLastLogLines() {
-        File log = new File(activity.getFilesDir(), "hikari-startup.log");
+    private String readLastLogLines(File log, int maximum) {
         if (!log.isFile()) return "No se creó el registro de inicio.";
         ArrayList<String> lines = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(log))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 lines.add(line);
-                if (lines.size() > 120) lines.remove(0);
+                if (lines.size() > maximum) lines.remove(0);
             }
         } catch (Exception e) { return "No se pudo leer el registro: " + e.getMessage(); }
         StringBuilder result = new StringBuilder();
