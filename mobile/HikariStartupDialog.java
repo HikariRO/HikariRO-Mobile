@@ -109,7 +109,7 @@ public class HikariStartupDialog extends PreloaderDialog {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
         root.setPadding(dp(48), dp(18), dp(48), dp(18));
-        root.setBackgroundColor(0x00000000);
+        root.setBackgroundResource(R.drawable.hikariro_launcher_background);
 
         ImageView logo = new ImageView(activity);
         logo.setImageResource(R.drawable.hikariro_mobile_icon);
@@ -164,11 +164,14 @@ public class HikariStartupDialog extends PreloaderDialog {
         frame.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
         dialog.setContentView(frame);
         Window window = dialog.getWindow();
-        if (window != null) window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+        if (window != null) {
+            window.setBackgroundDrawableResource(R.drawable.hikariro_launcher_background);
+            window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+        }
     }
 
     private void copyDiagnostic() {
-        String value = "HikariRO Mobile 0.6\n" +
+        String value = "HikariRO Mobile 0.7\n" +
             "Stage: " + currentStage + "\n" +
             "Executable: " + activity.getIntent().getStringExtra("exec_path") + "\n" +
             "Compatible mode: " + activity.getIntent().getBooleanExtra("hikari_compat_mode", true) + "\n" +
