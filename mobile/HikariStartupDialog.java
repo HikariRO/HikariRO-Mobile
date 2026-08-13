@@ -6,6 +6,8 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -50,7 +52,7 @@ public class HikariStartupDialog extends PreloaderDialog {
             elapsed.setText(String.format(Locale.getDefault(), "Tiempo transcurrido: %d:%02d", seconds / 60, seconds % 60));
             if (seconds >= 120) {
                 title.setText("El inicio está tardando demasiado");
-                stage.setText(currentStage + "\nPuedes reintentar o activar el modo compatible para Mali.");
+                stage.setText(currentStage + "\nPulsa Copiar diagnóstico para revisar el punto exacto del fallo. El modo compatible solo afecta a problemas gráficos.");
                 timeoutActions.setVisibility(View.VISIBLE);
             }
             handler.postDelayed(this, 1000L);
@@ -96,20 +98,28 @@ public class HikariStartupDialog extends PreloaderDialog {
         dialog.setCancelable(false);
 
         FrameLayout frame = new FrameLayout(activity);
+        frame.setBackgroundColor(Color.TRANSPARENT);
+
         ImageView background = new ImageView(activity);
         background.setImageResource(R.drawable.hikariro_launcher_background);
         background.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        frame.addView(background, new FrameLayout.LayoutParams(-1, -1));
+        background.setAdjustViewBounds(false);
+        background.setAlpha(1.0f);
+        frame.addView(background, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ));
 
+        // Only a light tint: the previous combination of opaque surfaces hid the artwork.
         View shade = new View(activity);
-        shade.setBackgroundColor(0x77030b1d);
+        shade.setBackgroundColor(0x33030b1d);
         frame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
         root.setPadding(dp(48), dp(18), dp(48), dp(18));
-        root.setBackgroundResource(R.drawable.hikariro_launcher_background);
+        root.setBackgroundColor(Color.TRANSPARENT);
 
         ImageView logo = new ImageView(activity);
         logo.setImageResource(R.drawable.hikariro_mobile_icon);
@@ -159,19 +169,22 @@ public class HikariStartupDialog extends PreloaderDialog {
 
         ScrollView scroll = new ScrollView(activity);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(0x00000000);
+        scroll.setBackgroundColor(Color.TRANSPARENT);
         scroll.addView(root, new ScrollView.LayoutParams(-1, -1));
         frame.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
         dialog.setContentView(frame);
+
         Window window = dialog.getWindow();
         if (window != null) {
-            window.setBackgroundDrawableResource(R.drawable.hikariro_launcher_background);
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.setDimAmount(0f);
             window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
         }
     }
 
     private void copyDiagnostic() {
-        String value = "HikariRO Mobile 0.7\n" +
+        String value = "HikariRO Mobile 0.8\n" +
             "Stage: " + currentStage + "\n" +
             "Executable: " + activity.getIntent().getStringExtra("exec_path") + "\n" +
             "Compatible mode: " + activity.getIntent().getBooleanExtra("hikari_compat_mode", true) + "\n" +
