@@ -18,6 +18,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.ScrollView;
 
 import androidx.preference.PreferenceManager;
 
@@ -62,7 +63,7 @@ public class HikariStartupDialog extends PreloaderDialog {
             title.setText(textResId == R.string.starting_up ? "Iniciando HikariRO" : activity.getString(textResId));
             currentStage = "Preparando Wine y Box64";
             stage.setText(currentStage);
-            timeoutActions.setVisibility(View.GONE);
+            timeoutActions.setVisibility(View.VISIBLE);
             startedAt = System.currentTimeMillis();
             if (!dialog.isShowing()) dialog.show();
             handler.removeCallbacks(ticker);
@@ -92,34 +93,34 @@ public class HikariStartupDialog extends PreloaderDialog {
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
-        root.setPadding(64, 40, 64, 40);
+        root.setPadding(dp(48), dp(18), dp(48), dp(18));
         root.setBackgroundColor(0xff08152f);
 
         ImageView logo = new ImageView(activity);
         logo.setImageResource(R.drawable.hikariro_mobile_icon);
         logo.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        root.addView(logo, new LinearLayout.LayoutParams(dp(180), dp(180)));
+        root.addView(logo, new LinearLayout.LayoutParams(dp(118), dp(118)));
 
         title = label(26, 0xffffffff);
         title.setGravity(Gravity.CENTER);
-        root.addView(title, margins(-1, -2, 8, 20));
+        root.addView(title, margins(-1, -2, 4, 8));
 
         ProgressBar spinner = new ProgressBar(activity);
         spinner.setIndeterminate(true);
-        root.addView(spinner, margins(dp(56), dp(56), 0, 18));
+        root.addView(spinner, margins(dp(44), dp(44), 0, 8));
 
         stage = label(18, 0xffdce8ff);
         stage.setGravity(Gravity.CENTER);
-        root.addView(stage, margins(-1, -2, 0, 8));
+        root.addView(stage, margins(-1, -2, 0, 4));
 
         elapsed = label(15, 0xff8fa8cf);
         elapsed.setGravity(Gravity.CENTER);
-        root.addView(elapsed, margins(-1, -2, 0, 18));
+        root.addView(elapsed, margins(-1, -2, 0, 8));
 
         timeoutActions = new LinearLayout(activity);
         timeoutActions.setOrientation(LinearLayout.HORIZONTAL);
         timeoutActions.setGravity(Gravity.CENTER);
-        timeoutActions.setVisibility(View.GONE);
+        timeoutActions.setVisibility(View.VISIBLE);
 
         Button retry = new Button(activity);
         retry.setText("Reintentar");
@@ -141,14 +142,19 @@ public class HikariStartupDialog extends PreloaderDialog {
         timeoutActions.addView(diagnostic);
         root.addView(timeoutActions, new LinearLayout.LayoutParams(-1, -2));
 
-        dialog.setContentView(root);
+        ScrollView scroll = new ScrollView(activity);
+        scroll.setFillViewport(true);
+        scroll.addView(root, new ScrollView.LayoutParams(-1, -1));
+        dialog.setContentView(scroll);
         Window window = dialog.getWindow();
         if (window != null) window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
     }
 
     private void copyDiagnostic() {
-        String value = "HikariRO Mobile 0.3\n" +
+        String value = "HikariRO Mobile 0.4\n" +
             "Stage: " + currentStage + "\n" +
+            "Executable: " + activity.getIntent().getStringExtra("exec_path") + "\n" +
+            "Compatible mode: " + activity.getIntent().getBooleanExtra("hikari_compat_mode", true) + "\n" +
             "Device: " + Build.MANUFACTURER + " " + Build.MODEL + "\n" +
             "Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")\n" +
             "ABI: " + String.join(",", Build.SUPPORTED_ABIS);
