@@ -15,8 +15,8 @@ def replace(path: Path, old: str, new: str) -> None:
 build = root / "app/build.gradle"
 replace(build, "applicationId 'com.winlator'", "applicationId 'com.hikariro.mobile'")
 build_text = build.read_text(encoding="utf-8")
-build_text = re.sub(r"versionCode\s+\d+", "versionCode 3", build_text, count=1)
-build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.3.0-beta"', build_text, count=1)
+build_text = re.sub(r"versionCode\s+\d+", "versionCode 4", build_text, count=1)
+build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.4.0-beta"', build_text, count=1)
 if "pickFirst '**/*.so'" not in build_text:
     build_text = build_text.replace(
         "android {",
