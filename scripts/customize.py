@@ -15,8 +15,8 @@ def replace(path: Path, old: str, new: str) -> None:
 build = root / "app/build.gradle"
 replace(build, "applicationId 'com.winlator'", "applicationId 'com.hikariro.mobile'")
 build_text = build.read_text(encoding="utf-8")
-build_text = re.sub(r"versionCode\s+\d+", "versionCode 4", build_text, count=1)
-build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.4.0-beta"', build_text, count=1)
+build_text = re.sub(r"versionCode\s+\d+", "versionCode 5", build_text, count=1)
+build_text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.5.0-beta"', build_text, count=1)
 if "pickFirst '**/*.so'" not in build_text:
     build_text = build_text.replace(
         "android {",
@@ -82,6 +82,10 @@ icon_src = Path("assets/hikariro-mobile-icon.png")
 icon_dst = root / "app/src/main/res/drawable-nodpi/hikariro_mobile_icon.png"
 icon_dst.parent.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(icon_src, icon_dst)
+
+background_src = Path("assets/hikariro-launcher-background.png")
+background_dst = root / "app/src/main/res/drawable-nodpi/hikariro_launcher_background.png"
+shutil.copyfile(background_src, background_dst)
 
 xserver = root / "app/src/main/java/com/winlator/XServerDisplayActivity.java"
 replace(
