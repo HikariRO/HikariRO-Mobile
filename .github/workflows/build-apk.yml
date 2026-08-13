@@ -39,6 +39,56 @@ jobs:
       - name: Apply HikariRO customization
         run: python3 scripts/customize.py
 
+      - name: Apply 0.8 Box64 runtime repair
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("winlator/app")
+          build = root / "app/build.gradle"
+          text = build.read_text(encoding="utf-8")
+          text = re.sub(r"versionCode\s+\d+", "versionCode 8", text, count=1)
+          text = re.sub(r'versionName\s+"[^"]+"', 'versionName "0.8.0-beta"', text, count=1)
+          build.write_text(text, encoding="utf-8")
+
+          diagnostics = root / "app/src/main/java/com/winlator/HikariDiagnostics.java"
+          text = diagnostics.read_text(encoding="utf-8")
+          if 'remove("current_box64_version")' not in text:
+              marker = '        record(context, "Inicio del diagnóstico 0.8");'
+              if marker not in text:
+                  marker = '        record(context, "Inicio del diagnóstico 0.7");'
+              if marker not in text:
+                  raise RuntimeError("No se encontró el punto de reparación de Box64")
+              replacement = (
+                  '        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)'
+                  '.edit().remove("current_box64_version").commit();\n'
+                  '        record(context, "Inicio del diagnóstico 0.8");\n'
+                  '        record(context, "Runtime Box64 marcado para revalidación");'
+              )
+              text = text.replace(marker, replacement, 1)
+          else:
+              text = text.replace('Inicio del diagnóstico 0.7', 'Inicio del diagnóstico 0.8')
+          diagnostics.write_text(text, encoding="utf-8")
+
+          startup = root / "app/src/main/java/com/winlator/HikariStartupDialog.java"
+          text = startup.read_text(encoding="utf-8")
+          text = text.replace("HikariRO Mobile 0.7\\n", "HikariRO Mobile 0.8\\n")
+          text = text.replace(
+              "Puedes reintentar o activar el modo compatible para Mali.",
+              "Pulsa Copiar diagnóstico para revisar el punto exacto del fallo. El modo compatible solo afecta a problemas gráficos."
+          )
+          startup.write_text(text, encoding="utf-8")
+
+          xserver = root / "app/src/main/java/com/winlator/XServerDisplayActivity.java"
+          text = xserver.read_text(encoding="utf-8")
+          text = text.replace(
+              'preloaderDialog.setStageOnUiThread("Box64 iniciado; esperando la ventana del juego");',
+              'preloaderDialog.setStageOnUiThread("Box64 solicitado; verificando proceso y esperando la ventana del juego");'
+          )
+          xserver.write_text(text, encoding="utf-8")
+          PY
+
       - name: Build ARM64 private APK
         working-directory: winlator/app
         run: |
@@ -46,12 +96,12 @@ jobs:
           ./gradlew --no-daemon assembleDebug
 
       - name: Rename APK
-        run: cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.7-beta-unsigned.apk
+        run: cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.8-beta.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HikariRO-Mobile-0.7-beta-unsigned
-          path: HikariRO-Mobile-0.7-beta-unsigned.apk
+          name: HikariRO-Mobile-0.8-beta
+          path: HikariRO-Mobile-0.8-beta.apk
           if-no-files-found: error
           retention-days: 30
