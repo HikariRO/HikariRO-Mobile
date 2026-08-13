@@ -252,7 +252,7 @@ public class HikariLauncherActivity extends AppCompatActivity {
         status.setText("Preparando el entorno de juego…\nEjecutable: " + exe.getAbsolutePath());
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         if (!preferences.contains("hikari_compat_mode")) {
-            preferences.edit().putBoolean("hikari_compat_mode", true).apply();
+            preferences.edit().putBoolean("hikari_compat_mode", true).commit();
         }
         preferences.edit()
             .putInt("box64_logs", 2)
@@ -260,7 +260,9 @@ public class HikariLauncherActivity extends AppCompatActivity {
             .putString("wine_debug_channels", "seh,loaddll")
             .putBoolean("save_logs_to_file", true)
             .putString("log_file", new File(getFilesDir(), "hikari-startup.log").getAbsolutePath())
-            .apply();
+            .commit();
+        HikariDiagnostics.reset(this);
+        HikariDiagnostics.record(this, "Ejecutable verificado: " + exe.getAbsolutePath() + " (" + exe.length() + " bytes)");
         RootFSInstaller.installIfNeeded(this);
         waitForRootFs(0);
     }
