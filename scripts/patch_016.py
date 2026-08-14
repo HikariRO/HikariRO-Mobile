@@ -1,8 +1,9 @@
 from pathlib import Path
 import re
-import shutil
 
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageFile
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 root = Path("winlator/app")
 
