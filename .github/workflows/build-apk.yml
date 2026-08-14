@@ -46,44 +46,22 @@ jobs:
       - name: Apply clean 0.19 version and launch policy
         run: python3 scripts/patch_019_clean.py
 
-      - name: Build ARM64 private APK
+      - name: Build ARM64 APK
         working-directory: winlator/app
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 
-      - name: Restore permanent signing key
-        env:
-          HIKARIRO_KEYSTORE_BASE64: ${{ secrets.HIKARIRO_KEYSTORE_BASE64 }}
+      - name: Verify and rename APK
         run: |
-          test -n "$HIKARIRO_KEYSTORE_BASE64" || { echo "Missing HIKARIRO_KEYSTORE_BASE64 repository secret"; exit 1; }
-          printf '%s' "$HIKARIRO_KEYSTORE_BASE64" | base64 --decode > hikariro-release.p12
-
-      - name: Sign and verify APK
-        env:
-          HIKARIRO_KEYSTORE_PASSWORD: ${{ secrets.HIKARIRO_KEYSTORE_PASSWORD }}
-          HIKARIRO_KEY_ALIAS: ${{ secrets.HIKARIRO_KEY_ALIAS }}
-          HIKARIRO_KEY_PASSWORD: ${{ secrets.HIKARIRO_KEY_PASSWORD }}
-        run: |
-          test -n "$HIKARIRO_KEYSTORE_PASSWORD" || { echo "Missing signing password secret"; exit 1; }
-          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.19-unsigned.apk
-          zip -d HikariRO-Mobile-0.19-unsigned.apk 'META-INF/*' || true
-          "$ANDROID_HOME/build-tools/34.0.0/zipalign" -f -p 4 HikariRO-Mobile-0.19-unsigned.apk HikariRO-Mobile-0.19-aligned.apk
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" sign \
-            --ks hikariro-release.p12 \
-            --ks-type PKCS12 \
-            --ks-key-alias "$HIKARIRO_KEY_ALIAS" \
-            --ks-pass "pass:$HIKARIRO_KEYSTORE_PASSWORD" \
-            --key-pass "pass:$HIKARIRO_KEY_PASSWORD" \
-            --out HikariRO-Mobile-0.19.apk \
-            HikariRO-Mobile-0.19-aligned.apk
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs HikariRO-Mobile-0.19.apk
-          rm -f hikariro-release.p12 HikariRO-Mobile-0.19-unsigned.apk HikariRO-Mobile-0.19-aligned.apk
+          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.19-FRESH.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs HikariRO-Mobile-0.19-FRESH.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging HikariRO-Mobile-0.19-FRESH.apk | head -5
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HikariRO-Mobile-0.19
-          path: HikariRO-Mobile-0.19.apk
+          name: HikariRO-Mobile-0.19-FRESH
+          path: HikariRO-Mobile-0.19-FRESH.apk
           if-no-files-found: error
           retention-days: 30
