@@ -1,4 +1,4 @@
-name: Build HikariRO Mobile 0.20
+name: Build HikariRO Mobile 0.21
 
 on:
   push:
@@ -46,6 +46,9 @@ jobs:
       - name: Apply Android 16 PID fix
         run: python3 scripts/patch_020_pid.py
 
+      - name: Apply real Wine loader preserving WinHandler
+        run: python3 scripts/patch_021_wine_loader.py
+
       - name: Build ARM64 APK
         working-directory: winlator/app
         run: |
@@ -54,17 +57,17 @@ jobs:
 
       - name: Verify and prepare signing kit
         run: |
-          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.20-unsigned.apk
+          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.21-unsigned.apk
           cp "$ANDROID_HOME/build-tools/34.0.0/lib/apksigner.jar" apksigner-34.0.0.jar
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose HikariRO-Mobile-0.20-unsigned.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose HikariRO-Mobile-0.21-unsigned.apk
           test -s apksigner-34.0.0.jar
 
       - name: Upload unsigned APK and official signing tool
         uses: actions/upload-artifact@v4
         with:
-          name: HikariRO-Mobile-0.20-signing-kit
+          name: HikariRO-Mobile-0.21-signing-kit
           path: |
-            HikariRO-Mobile-0.20-unsigned.apk
+            HikariRO-Mobile-0.21-unsigned.apk
             apksigner-34.0.0.jar
           if-no-files-found: error
           retention-days: 7
