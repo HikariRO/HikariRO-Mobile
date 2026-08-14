@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 
-from PIL import Image, ImageFilter, ImageFile
+from PIL import Image, ImageFilter, ImageFile, ImageOps, ImageEnhance, ImageDraw
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -71,36 +71,70 @@ if old not in s:
 s = s.replace(old, new, 1)
 xenv.write_text(s, encoding="utf-8")
 
-# Rebuild the background from the original repository asset instead of the
-# stretched 0.14 derivative. Preserve aspect ratio and use high-quality Lanczos
-# scaling + a restrained unsharp mask. No non-uniform stretching is performed.
+# Build a sharp 16:9 composition from the useful scenic part of the source.
+# The original PNG contains a wide panorama only at the top and a large black
+# lower area. Instead of stretching that panorama vertically, keep it crisp,
+# mirror it at the bottom and bridge both with a dark-blue gradient. This fills
+# the screen intentionally without deformation and keeps the central UI legible.
 source = Path("assets/hikariro-launcher-background.png")
 dest = root / "app/src/main/res/drawable-nodpi/hikariro_launcher_background.png"
 if not source.is_file():
     raise RuntimeError("Falta assets/hikariro-launcher-background.png")
 img = Image.open(source).convert("RGB")
-
-# The original asset is already almost exactly 16:9. Crop only the tiny excess
-# required to reach exact 16:9, then upscale uniformly to 2560x1440.
 w, h = img.size
-target_ratio = 16 / 9
-ratio = w / h
-if ratio > target_ratio:
-    new_w = round(h * target_ratio)
-    left = (w - new_w) // 2
-    img = img.crop((left, 0, left + new_w, h))
-elif ratio < target_ratio:
-    new_h = round(w / target_ratio)
-    top = (h - new_h) // 2
-    img = img.crop((0, top, w, top + new_h))
 
-img = img.resize((2560, 1440), Image.Resampling.LANCZOS)
-img = img.filter(ImageFilter.UnsharpMask(radius=1.1, percent=115, threshold=3))
+# The previous build detected the actual scenic content in the first ~180 rows.
+# Re-detect conservatively to survive future source changes.
+last = 0
+sample_width = min(420, w)
+for y in range(h):
+    row = img.crop((0, y, w, y + 1)).resize((sample_width, 1))
+    pixels = list(row.getdata())
+    bright = sum(1 for r, g, b in pixels if max(r, g, b) > 35 and (r + g + b) > 90)
+    if bright >= max(4, len(pixels) // 24):
+        last = y
+scenic_h = min(h, max(180, last + 1))
+scenic = img.crop((0, 0, w, scenic_h))
+
+# Uniform horizontal scaling only; aspect ratio is preserved.
+target_w, target_h = 2560, 1440
+scale = target_w / scenic.width
+strip_h = max(260, round(scenic.height * scale))
+scenic = scenic.resize((target_w, strip_h), Image.Resampling.LANCZOS)
+scenic = scenic.filter(ImageFilter.UnsharpMask(radius=1.0, percent=120, threshold=2))
+
+canvas = Image.new("RGB", (target_w, target_h), (5, 13, 31))
+canvas.paste(scenic, (0, 0))
+
+bottom = ImageOps.flip(scenic)
+bottom = ImageEnhance.Brightness(bottom).enhance(0.58)
+canvas.paste(bottom, (0, target_h - strip_h))
+
+# Dark navy gradient through the center, sampled to blend with both strips.
+draw = ImageDraw.Draw(canvas)
+start_y = strip_h
+end_y = target_h - strip_h
+for y in range(start_y, end_y):
+    t = (y - start_y) / max(1, end_y - start_y - 1)
+    # Slightly brighter near the panorama edges, darkest in the middle.
+    edge = abs(t - 0.5) * 2.0
+    r = int(5 + 7 * edge)
+    g = int(13 + 13 * edge)
+    b = int(31 + 24 * edge)
+    draw.line((0, y, target_w, y), fill=(r, g, b))
+
+# Very subtle vignette on the edges for better text contrast without blurring art.
+overlay = Image.new("RGBA", (target_w, target_h), (0, 0, 0, 0))
+od = ImageDraw.Draw(overlay)
+for i in range(90):
+    alpha = int(70 * (1 - i / 90))
+    od.rectangle((i, i, target_w - 1 - i, target_h - 1 - i), outline=(0, 0, 0, alpha))
+canvas = Image.alpha_composite(canvas.convert("RGBA"), overlay).convert("RGB")
+
 dest.parent.mkdir(parents=True, exist_ok=True)
-img.save(dest, "PNG", optimize=True)
+canvas.save(dest, "PNG", optimize=True)
 
-# Ensure ImageViews preserve aspect ratio; CENTER_CROP fills the screen without
-# deforming the image. The background itself is now exact 16:9, so crop is tiny.
+# Preserve aspect ratio in Android. Exact 16:9 background + CENTER_CROP means no stretch.
 for rel in [
     "app/src/main/java/com/winlator/HikariLauncherActivity.java",
     "app/src/main/java/com/winlator/HikariStartupDialog.java",
@@ -112,4 +146,4 @@ for rel in [
     s = s.replace("background.setAdjustViewBounds(true);", "background.setAdjustViewBounds(false);")
     p.write_text(s, encoding="utf-8")
 
-print("0.16 patch applied: per-component crash diagnostics + 2560x1440 crisp background")
+print("0.16 patch applied: per-component crash diagnostics + crisp non-stretched 2560x1440 background")
