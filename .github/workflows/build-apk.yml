@@ -67,8 +67,8 @@ jobs:
       - name: Apply 0.17 deep launcher diagnostics and fullscreen background
         run: python3 scripts/patch_017.py
 
-      - name: Apply 0.18 launcher and startup fixes
-        run: python3 scripts/patch_018.py
+      - name: Apply 0.18 runtime startup fix
+        run: python3 scripts/patch_018_runtime.py
 
       - name: Build ARM64 private APK
         working-directory: winlator/app
