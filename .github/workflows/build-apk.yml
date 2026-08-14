@@ -52,16 +52,19 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 
-      - name: Verify and rename APK
+      - name: Verify and prepare signing kit
         run: |
-          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.19-FRESH.apk
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs HikariRO-Mobile-0.19-FRESH.apk
-          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging HikariRO-Mobile-0.19-FRESH.apk | head -5
+          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.19-unsigned.apk
+          cp "$ANDROID_HOME/build-tools/34.0.0/lib/apksigner.jar" apksigner-34.0.0.jar
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose HikariRO-Mobile-0.19-unsigned.apk
+          test -s apksigner-34.0.0.jar
 
-      - name: Upload APK
+      - name: Upload unsigned APK and official signing tool
         uses: actions/upload-artifact@v4
         with:
-          name: HikariRO-Mobile-0.19-FRESH
-          path: HikariRO-Mobile-0.19-FRESH.apk
+          name: HikariRO-Mobile-0.19-signing-kit
+          path: |
+            HikariRO-Mobile-0.19-unsigned.apk
+            apksigner-34.0.0.jar
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
