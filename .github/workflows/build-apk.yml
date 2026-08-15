@@ -1,8 +1,8 @@
-name: Build HikariRO Mobile 0.25
+name: Build HikariRO Mobile 0.26
 
 on:
   push:
-    branches: [main]
+    branches: [main, agent/build-v0.19-clean]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -61,6 +61,9 @@ jobs:
       - name: Show Box64 trace in diagnostics
         run: python3 scripts/patch_025_visible_box64_trace.py
 
+      - name: Add GuestProgramLauncher step diagnostics
+        run: python3 scripts/patch_026_launcher_step_diagnostics.py
+
       - name: Build ARM64 APK
         working-directory: winlator/app
         run: |
@@ -69,17 +72,17 @@ jobs:
 
       - name: Verify and prepare signing kit
         run: |
-          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.25-unsigned.apk
+          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.26-unsigned.apk
           cp "$ANDROID_HOME/build-tools/34.0.0/lib/apksigner.jar" apksigner-34.0.0.jar
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose HikariRO-Mobile-0.25-unsigned.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose HikariRO-Mobile-0.26-unsigned.apk
           test -s apksigner-34.0.0.jar
 
       - name: Upload unsigned APK and official signing tool
         uses: actions/upload-artifact@v4
         with:
-          name: HikariRO-Mobile-0.25-signing-kit
+          name: HikariRO-Mobile-0.26-signing-kit
           path: |
-            HikariRO-Mobile-0.25-unsigned.apk
+            HikariRO-Mobile-0.26-unsigned.apk
             apksigner-34.0.0.jar
           if-no-files-found: error
           retention-days: 7
