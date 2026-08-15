@@ -1,8 +1,8 @@
-name: Build private APK
+name: Build HikariRO Mobile 0.26
 
 on:
   push:
-    branches: [main]
+    branches: [main, agent/build-v0.19-clean]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -40,49 +40,49 @@ jobs:
       - name: Apply HikariRO customization
         run: python3 scripts/customize.py
 
-      - name: Apply 0.10 native loader workaround
+      - name: Apply ARM64 native loader workaround
         run: python3 scripts/patch_010.py
 
-      - name: Apply 0.11 Android PID and background fix
-        run: python3 scripts/patch_011.py
+      - name: Apply Android 16 PID fix
+        run: python3 scripts/patch_020_pid.py
 
-      - name: Apply 0.12 persistent diagnostics and full background
-        run: python3 scripts/patch_012.py
+      - name: Apply real Wine loader preserving WinHandler
+        run: python3 scripts/patch_021_wine_loader.py
 
-      - name: Apply 0.13 direct Wine launch
-        run: python3 scripts/patch_013.py
+      - name: Apply explicit Wine preloader chain
+        run: python3 scripts/patch_022_wine_preloader.py
 
-      - name: Apply 0.14 Wine loader and fullscreen artwork fix
-        run: python3 scripts/patch_014.py
+      - name: Apply Android-safe Box64 re-exec wrapper
+        run: python3 scripts/patch_023_box64_reexec.py
 
-      - name: Apply 0.15 real Wine loader fix
-        run: python3 scripts/patch_015.py
+      - name: Add component startup diagnostics
+        run: python3 scripts/patch_024_component_diagnostics.py
 
-      - name: Apply 0.15.1 update compatibility version
-        run: python3 scripts/patch_0151.py
+      - name: Show Box64 trace in diagnostics
+        run: python3 scripts/patch_025_visible_box64_trace.py
 
-      - name: Apply 0.16 component diagnostics and crisp background
-        run: python3 scripts/patch_016.py
+      - name: Add GuestProgramLauncher step diagnostics
+        run: python3 scripts/patch_026_launcher_step_diagnostics.py
 
-      - name: Apply 0.17 deep launcher diagnostics and fullscreen background
-        run: python3 scripts/patch_017.py
-
-      - name: Apply 0.18 runtime startup fix
-        run: python3 scripts/patch_018_runtime.py
-
-      - name: Build ARM64 private APK
+      - name: Build ARM64 APK
         working-directory: winlator/app
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 
-      - name: Rename APK
-        run: cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.18-beta.apk
+      - name: Verify and prepare signing kit
+        run: |
+          cp winlator/app/app/build/outputs/apk/debug/app-debug.apk HikariRO-Mobile-0.26-unsigned.apk
+          cp "$ANDROID_HOME/build-tools/34.0.0/lib/apksigner.jar" apksigner-34.0.0.jar
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose HikariRO-Mobile-0.26-unsigned.apk
+          test -s apksigner-34.0.0.jar
 
-      - name: Upload APK
+      - name: Upload unsigned APK and official signing tool
         uses: actions/upload-artifact@v4
         with:
-          name: HikariRO-Mobile-0.18-beta
-          path: HikariRO-Mobile-0.18-beta.apk
+          name: HikariRO-Mobile-0.26-signing-kit
+          path: |
+            HikariRO-Mobile-0.26-unsigned.apk
+            apksigner-34.0.0.jar
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
