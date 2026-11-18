@@ -69,6 +69,7 @@ import com.winlator.core.WineUtils;
 import com.winlator.hikariro.HardcodedPathPatcher;
 import com.winlator.hikariro.HikariCompat;
 import com.winlator.hikariro.HikariConfig;
+import com.winlator.hikariro.HikariThorDownloadMonitor;
 import com.winlator.inputcontrols.ControlsProfile;
 import com.winlator.inputcontrols.ExternalController;
 import com.winlator.inputcontrols.InputControlsManager;
@@ -153,6 +154,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     public int frameRatingWindowId = -1;
     private Win32AppWorkarounds win32AppWorkarounds;
     private String screenEffectProfile;
+    private HikariThorDownloadMonitor hikariThorMonitor;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -189,6 +191,13 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             ContainerManager containerManager = new ContainerManager(this);
             container = containerManager.getContainerById(getIntent().getIntExtra("container_id", 0));
             containerManager.activateContainer(container);
+            if (isHikariContainer() && HikariConfig.USE_PATCHER) {
+                File patcher = new File(getFilesDir(), HikariConfig.CLIENT_DIR_NAME + "/" + HikariConfig.PATCHER_EXE_NAME);
+                if (patcher.isFile()) {
+                    hikariThorMonitor = new HikariThorDownloadMonitor(patcher.getParentFile());
+                    hikariThorMonitor.start();
+                }
+            }
 
             boolean wineprefixNeedsUpdate = container.getExtra("wineprefixNeedsUpdate").equals("t");
             if (wineprefixNeedsUpdate) {
@@ -369,6 +378,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
     @Override
     protected void onDestroy() {
+        if (hikariThorMonitor != null) hikariThorMonitor.stop();
         hikariHandler.removeCallbacks(hikariSuspendRunnable);
         winHandler.stop();
         if (environment != null) environment.stopEnvironmentComponents();
